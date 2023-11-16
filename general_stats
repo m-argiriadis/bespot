@@ -1,0 +1,56 @@
+import pandas as pd
+import numpy as np
+from datetime import datetime
+import pytz
+
+# Φόρτωση των δεδομένων
+df = pd.read_csv("C:/Users/michalis/Desktop/data_analyst_dataset1.csv")
+
+# Μετατροπή του Unix timestamp σε datetime στη ζώνη ώρας Europe/Athens
+athens_timezone = pytz.timezone('Europe/Athens')
+df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+df['timestamp'] = df['timestamp'].dt.tz_localize(pytz.utc).dt.tz_convert(athens_timezone)
+
+# Εξαγωγή της ημερομηνίας
+df['timestamp'] = df['timestamp'].dt.date
+
+# Group by the date and calculate the required statistics
+daily_data = df.groupby('timestamp').agg(
+    daily_stores=('store_id', 'nunique'),
+    daily_customers=('customer_id', 'nunique'),
+    daily_purchases=('timestamp', 'size'),
+    daily_quantity=('quantity', 'sum'),
+    Quantity_A=('quantity', lambda x: x[df['product_type'] == 'A'].sum()),
+    Quantity_B=('quantity', lambda x: x[df['product_type'] == 'B'].sum())
+)
+
+# Calculate the percentages
+daily_data['Percentage_A'] = (daily_data['Quantity_A'] / daily_data['daily_quantity']) * 100
+daily_data['Percentage_B'] = (daily_data['Quantity_B'] / daily_data['daily_quantity']) * 100
+
+
+# Calculate the overall metrics to add as the last row
+total_days = daily_data.shape[0]
+overall_metrics = pd.Series({
+    'daily_stores': daily_data['daily_stores'].mean(),
+    'daily_customers': daily_data['daily_customers'].mean(),
+    'daily_purchases': daily_data['daily_purchases'].mean(),
+    'daily_quantity': daily_data['daily_quantity'].mean(),
+    'Quantity_A': daily_data['Quantity_A'].mean(),
+    'Quantity_B': daily_data['Quantity_B'].mean(),
+    'Percentage_A': daily_data['Percentage_A'].mean(),
+    'Percentage_B': daily_data['Percentage_B'].mean()
+}, name='Overall Average')
+
+# Append the overall metrics to the daily data
+daily_data = pd.concat([daily_data, pd.DataFrame(overall_metrics).T])
+
+# Add a row for the total operating days
+total_days = pd.DataFrame({'Total Operating Days': [total_days]}, index=['Total Days'])
+
+# Combine everything into a final dataframe
+final_data = pd.concat([daily_data, total_days], axis=0)
+
+
+# Αποθήκευση των αποτελεσμάτων σε ένα αρχείο CSV
+final_data.to_csv('general_stats.csv', index=True)
