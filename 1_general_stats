@@ -6,12 +6,12 @@ import pytz
 # Φόρτωση των δεδομένων
 df = pd.read_csv("C:/Users/michalis/Desktop/data_analyst_dataset1.csv")
 
-# Μετατροπή του Unix timestamp σε datetime στη ζώνη ώρας Europe/Athens
+# Convert Unix timestamp in datetime Europe/Athens
 athens_timezone = pytz.timezone('Europe/Athens')
 df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
 df['timestamp'] = df['timestamp'].dt.tz_localize(pytz.utc).dt.tz_convert(athens_timezone)
 
-# Εξαγωγή της ημερομηνίας
+# Date export
 df['timestamp'] = df['timestamp'].dt.date
 
 # Group by the date and calculate the required statistics
@@ -52,5 +52,5 @@ total_days = pd.DataFrame({'Total Operating Days': [total_days]}, index=['Total 
 final_data = pd.concat([daily_data, total_days], axis=0)
 
 
-# Αποθήκευση των αποτελεσμάτων σε ένα αρχείο CSV
+# Save at CSV file
 final_data.to_csv('general_stats.csv', index=True)
