@@ -70,4 +70,3 @@ with pd.ExcelWriter(final_output_path) as writer:
         individual_store_data = final_data_sorted[final_data_sorted['store_id'] == store].copy()
         individual_store_data.to_excel(writer, sheet_name=f'Store {store}', index=False, columns=['month_year', 'Total Products Sold', 'Unique Customers', 'Number of Purchases', 'Product A Sold', 'Product B Sold', 'Grand Total'])
 
-print(f"Analysis complete. Data exported to {final_output_path}")
