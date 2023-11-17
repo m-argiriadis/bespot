@@ -1,0 +1,73 @@
+import pandas as pd
+
+# Load the dataset
+file_path = 'C:/Users/michalis/Desktop/data_analyst_dataset1.csv'  # Replace with your file path
+data = pd.read_csv(file_path)
+
+
+# Convert timestamp to datetime and set UTC timezone
+data['timestamp'] = pd.to_datetime(data['timestamp'], unit='s', utc=True)
+
+# Convert timezone to Europe/Athens
+data['timestamp'] = data['timestamp'].dt.tz_convert('Europe/Athens')
+
+# Extract month and year
+data['month_year'] = data['timestamp'].dt.strftime('%Y-%m')
+
+# Identify the top 5 performing stores based on total quantity sold
+top_stores_total = data.groupby('store_id')['quantity'].sum().nlargest(5)
+top_stores = top_stores_total.index
+
+# Filter data for only top 5 stores
+top_stores_data = data[data['store_id'].isin(top_stores)]
+
+# Analysis
+# 1. Total products sold by top stores
+total_products_sold = top_stores_data.groupby(['store_id', 'month_year'])['quantity'].sum()
+
+# 2. Number of unique customers per month for top stores
+unique_customers = top_stores_data.groupby(['store_id', 'month_year'])['customer_id'].nunique()
+
+# 3. Number of purchases per month for top stores
+purchases_per_month = top_stores_data.groupby(['store_id', 'month_year']).size()
+
+# Combine first three analyses into a single DataFrame
+combined_data = pd.concat([total_products_sold, unique_customers, purchases_per_month], axis=1)
+combined_data.columns = ['Total Products Sold', 'Unique Customers', 'Number of Purchases']
+
+# 4. Quantity of products A and B sold per month
+products_sold = top_stores_data.groupby(['store_id', 'month_year', 'product_type'])['quantity'].sum().unstack(fill_value=0)
+products_sold.columns = ['Product A Sold', 'Product B Sold']
+
+# Merge the product sales data with the combined data
+final_data = pd.merge(combined_data, products_sold, left_index=True, right_index=True, how='left')
+
+# Sort the data by store_id and month_year
+final_data_sorted = final_data.reset_index()
+final_data_sorted = final_data_sorted.sort_values(by=['store_id', 'month_year'], ascending=[True, True])
+
+# Calculate grand total for each store
+final_data_sorted['Grand Total'] = final_data_sorted.groupby('store_id')['Total Products Sold'].transform('sum')
+
+# Create a mask for the first occurrence of each store_id
+first_occurrence_mask = ~final_data_sorted.duplicated(subset=['store_id'])
+
+# Create a new 'Display Store ID' column that will have the store_id only for the first occurrence
+final_data_sorted['Display Store ID'] = final_data_sorted['store_id']
+final_data_sorted.loc[~first_occurrence_mask, 'Display Store ID'] = ""
+
+# Leave 'Grand Total' only on the first occurrence of each store_id
+final_data_sorted.loc[~first_occurrence_mask, 'Grand Total'] = pd.NA
+
+# Export to Excel with multiple sheets
+final_output_path = 'top5_stores.xlsx'
+with pd.ExcelWriter(final_output_path) as writer:
+    # Summary sheet with all stores and months, 'Grand Total' and 'Display Store ID' only on the first line for each store
+    final_data_sorted.to_excel(writer, sheet_name='Top 5 Stores Summary', index=False, columns=['Display Store ID', 'month_year', 'Total Products Sold', 'Unique Customers', 'Number of Purchases', 'Product A Sold', 'Product B Sold', 'Grand Total'])
+
+    # Individual store sheets with all months, 'Grand Total' only on the first line
+    for store in top_stores:
+        individual_store_data = final_data_sorted[final_data_sorted['store_id'] == store].copy()
+        individual_store_data.to_excel(writer, sheet_name=f'Store {store}', index=False, columns=['month_year', 'Total Products Sold', 'Unique Customers', 'Number of Purchases', 'Product A Sold', 'Product B Sold', 'Grand Total'])
+
+print(f"Analysis complete. Data exported to {final_output_path}")
