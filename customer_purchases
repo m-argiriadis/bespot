@@ -1,0 +1,30 @@
+import pandas as pd
+
+# Load the dataset
+file_path = 'C:/Users/michalis/Desktop/data_analyst_dataset1.csv'  # Replace with your file path
+data = pd.read_csv(file_path)
+
+# Grouping the data by 'customer_id' and 'product_type'/ sum the quantities
+grouped_data = data.groupby(['customer_id', 'product_type'])['quantity'].sum().unstack(fill_value=0)
+
+# Resetting the index to turn 'customer_id' back into a column
+grouped_data.reset_index(inplace=True)
+
+# Rename the columns
+grouped_data.columns = ['customer_id', 'product_A', 'product_B']
+
+# Counting the number of transactions per customer
+total_purchases_per_customer = data['customer_id'].value_counts().reset_index()
+total_purchases_per_customer.columns = ['customer_id', 'total_purchases']
+
+# Merging the total purchases information with the existing grouped data
+final_data = pd.merge(grouped_data, total_purchases_per_customer, on='customer_id')
+
+# Rename the columns
+final_data.rename(columns={'product_A': 'total_product_A', 'product_B': 'total_product_B'}, inplace=True)
+
+# Specify the file path for the new CSV file
+new_csv_path = 'C:/Users/michalis/customer_purchases.csv'  # Replace with your desired file path
+
+# Save the final data to the new CSV file
+final_data.to_csv(new_csv_path, index=False)
