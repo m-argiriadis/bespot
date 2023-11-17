@@ -1,0 +1,54 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+df = pd.read_csv('C:/Users/michalis/Desktop/data_analyst_dataset1.csv')
+
+# 1. Unique Customers
+unique_customers = df['unique_customer'].nunique()
+print("Number of unique customers:", unique_customers)
+
+# 2. Distribution of Purchases per Customer
+customer_purchase_distribution = df.groupby('unique_customer')['total_purchases'].sum()
+print("Distribution of Purchases per Customer:\n", customer_purchase_distribution)
+
+# Visualize the distribution
+customer_purchase_distribution.plot(kind='bar')
+plt.title('Distribution of Purchases per Customer')
+plt.xlabel('Customer')
+plt.ylabel('Total Purchases')
+plt.show()
+
+# 3. Distribution of Purchases per Customer per Month
+# Convert 'date' to datetime and extract year and month
+df['year_month'] = pd.to_datetime(df['date']).dt.to_period('M')
+
+monthly_customer_distribution = df.groupby(['year_month', 'unique_customer'])['total_purchases'].sum()
+print("Distribution of Purchases per Customer per Month:\n", monthly_customer_distribution)
+
+# Visualize the distribution
+monthly_customer_distribution.unstack().plot(kind='bar', stacked=True)
+plt.title('Monthly Distribution of Purchases per Customer')
+plt.xlabel('Month')
+plt.ylabel('Total Purchases')
+plt.show()
+
+# 4. Count of Product A and B
+product_a_count = df['product_A'].sum()
+product_b_count = df['product_B'].sum()
+print("Total count of Product A:", product_a_count)
+print("Total count of Product B:", product_b_count)
+
+# Export data to CSV
+# Creating a new DataFrame to store sum of the data
+summary_data = pd.DataFrame({
+    'Unique Customers': [unique_customers],
+    'Total Product A': [product_a_count],
+    'Total Product B': [product_b_count]
+})
+
+# Add customer purchase distribution
+summary_data = summary_data.join(customer_purchase_distribution, how='outer')
+
+# Saving to CSV
+summary_data.to_csv('customers_purchases.csv', index=False)
