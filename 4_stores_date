@@ -32,11 +32,11 @@ same_customers = daily_customer_counts[daily_customer_counts['customer_diff'] ==
 first_time_customers = daily_customer_counts[daily_customer_counts['previous_day_customers'].isna()]
 
 # Calculate the network's average customer value
-network_average_athens = daily_customer_counts['customer_id'].mean()
+network_average = daily_customer_counts['customer_id'].mean()
 
 # Count first-time stores with above and below network average customers
-first_time_above_average = first_time_customers[first_time_customers['customer_id'] > network_average_athens].groupby('date').store_id.nunique()
-first_time_below_average = first_time_customers[first_time_customers['customer_id'] < network_average_athens].groupby('date').store_id.nunique()
+first_time_above_average = first_time_customers[first_time_customers['customer_id'] > network_average].groupby('date').store_id.nunique()
+first_time_below_average = first_time_customers[first_time_customers['customer_id'] < network_average].groupby('date').store_id.nunique()
 
 # Create a summary dataframe
 stores_day = pd.DataFrame({
