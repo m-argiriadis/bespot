@@ -1,54 +1,55 @@
 import pandas as pd
-import matplotlib.pyplot as plt
+import pytz
 
-# Load the dataset
-df = pd.read_csv('C:/Users/michalis/Desktop/data_analyst_dataset1.csv')
+# Load your dataset
+file_path = 'C:/Users/michalis/Desktop/data_analyst_dataset1.csv'  # Replace with your file path
+data = pd.read_csv(file_path)
 
-# 1. Unique Customers
-unique_customers = df['unique_customer'].nunique()
-print("Number of unique customers:", unique_customers)
+# Convert Unix timestamp to datetime in Europe/Athens timezone
+data['timestamp'] = pd.to_datetime(data['timestamp'], unit='s', utc=True).dt.tz_convert('Europe/Athens')
 
-# 2. Distribution of Purchases per Customer
-customer_purchase_distribution = df.groupby('unique_customer')['total_purchases'].sum()
-print("Distribution of Purchases per Customer:\n", customer_purchase_distribution)
+# Extract the date from the timestamp
+data['date'] = data['timestamp'].dt.date
 
-# Visualize the distribution
-customer_purchase_distribution.plot(kind='bar')
-plt.title('Distribution of Purchases per Customer')
-plt.xlabel('Customer')
-plt.ylabel('Total Purchases')
-plt.show()
+# Group by store_id and date and count unique customers per day per store
+daily_customer_counts= data.groupby(['store_id', 'date']).customer_id.nunique().reset_index()
 
-# 3. Distribution of Purchases per Customer per Month
-# Convert 'date' to datetime and extract year and month
-df['year_month'] = pd.to_datetime(df['date']).dt.to_period('M')
+# Sort the data to ensure it's in the correct order for comparison
+daily_customer_counts = daily_customer_counts.sort_values(by=['store_id', 'date'])
 
-monthly_customer_distribution = df.groupby(['year_month', 'unique_customer'])['total_purchases'].sum()
-print("Distribution of Purchases per Customer per Month:\n", monthly_customer_distribution)
+# Calculate daily changes in customer counts for each store
+daily_customer_counts['previous_day_customers'] = daily_customer_counts.groupby('store_id')['customer_id'].shift(1)
 
-# Visualize the distribution
-monthly_customer_distribution.unstack().plot(kind='bar', stacked=True)
-plt.title('Monthly Distribution of Purchases per Customer')
-plt.xlabel('Month')
-plt.ylabel('Total Purchases')
-plt.show()
+# Calculate the differences
+daily_customer_counts['customer_diff'] = daily_customer_counts['customer_id'] - daily_customer_counts['previous_day_customers']
 
-# 4. Count of Product A and B
-product_a_count = df['product_A'].sum()
-product_b_count = df['product_B'].sum()
-print("Total count of Product A:", product_a_count)
-print("Total count of Product B:", product_b_count)
+# Determine the categories based on the differences
+more_customers = daily_customer_counts[daily_customer_counts['customer_diff'] > 0].groupby('date').store_id.nunique()
+less_customers = daily_customer_counts[daily_customer_counts['customer_diff'] < 0].groupby('date').store_id.nunique()
+same_customers = daily_customer_counts[daily_customer_counts['customer_diff'] == 0].groupby('date').store_id.nunique()
 
-# Export data to CSV
-# Creating a new DataFrame to store sum of the data
-summary_data = pd.DataFrame({
-    'Unique Customers': [unique_customers],
-    'Total Product A': [product_a_count],
-    'Total Product B': [product_b_count]
-})
+# Identifying first-time customers for each store
+first_time_customers = daily_customer_counts[daily_customer_counts['previous_day_customers'].isna()]
 
-# Add customer purchase distribution
-summary_data = summary_data.join(customer_purchase_distribution, how='outer')
+# Calculate the network's average customer value
+network_average_athens = daily_customer_counts['customer_id'].mean()
 
-# Saving to CSV
-summary_data.to_csv('customers_purchases.csv', index=False)
+# Count first-time stores with above and below network average customers
+first_time_above_average = first_time_customers[first_time_customers['customer_id'] > network_average_athens].groupby('date').store_id.nunique()
+first_time_below_average = first_time_customers[first_time_customers['customer_id'] < network_average_athens].groupby('date').store_id.nunique()
+
+# Create a summary dataframe
+stores_day = pd.DataFrame({
+    'Stores with More Customers': more_customers,
+    'Stores with Less Customers': less_customers,
+    'Stores with Same Customers': same_customers,
+    'First-time Stores': first_time_customers.groupby('date').store_id.nunique(),
+    'First-time Stores Above Average': first_time_above_average,
+    'First-time Stores Below Average': first_time_below_average
+}).fillna(0).astype(int)  # Fill missing values with 0 and convert to integers
+
+# Define the path for the CSV export
+export_path = 'stores_day.csv'
+
+# Export the summary data to a CSV file
+stores_day.to_csv(export_path)
